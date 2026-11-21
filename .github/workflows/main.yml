@@ -1,4 +1,4 @@
-name: Build CipherChat APK from ZIP
+name: Build CipherChat APK
 on:
   push:
     branches: [ "main" ]
@@ -20,33 +20,33 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
 
-      - name: Unzip cipherchat.zip if present
+      - name: Extract cipherchat.zip
         run: |
+          rm -rf build_src
+          mkdir -p build_src
           if [ -f "cipherchat.zip" ]; then
-            mkdir -p zip_project
-            unzip -q cipherchat.zip -d zip_project
+            unzip -q cipherchat.zip -d build_src
           fi
+          find build_src -maxdepth 4 -not -path '*/.*' | head -n 60
 
       - name: Build Debug APK
         run: |
+          PROJ_DIR=$(find build_src -maxdepth 4 \( -name "settings.gradle.kts" -o -name "settings.gradle" -o -name "build.gradle.kts" -o -name "build.gradle" \) -exec dirname {} \; | head -n 1)
+          if [ -z "$PROJ_DIR" ]; then
+            PROJ_DIR="."
+          fi
+          echo "Using project dir: $PROJ_DIR"
+          cd "$PROJ_DIR"
           if [ -f "./gradlew" ]; then
             chmod +x ./gradlew
-            ./gradlew assembleDebug --stacktrace
-          elif [ -d "zip_project" ]; then
-            WORKDIR=$(find zip_project -maxdepth 4 -name "gradlew" -exec dirname {} \; | head -n 1)
-            if [ -n "$WORKDIR" ]; then
-              cd "$WORKDIR"
-              chmod +x gradlew
-              ./gradlew assembleDebug --stacktrace
-            else
-              gradle assembleDebug --stacktrace
-            fi
+            ./gradlew assembleDebug --stacktrace --info
           else
-            gradle assembleDebug --stacktrace
+            gradle assembleDebug --stacktrace --info
           fi
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: CipherChat-Debug-APK
           path: "**/app/build/outputs/apk/debug/*.apk"
